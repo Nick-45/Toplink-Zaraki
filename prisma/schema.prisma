@@ -1,0 +1,226 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model School {
+  id           String   @id @default(uuid())
+  name         String
+  code         String   @unique
+  address      String?
+  phone        String?
+  email        String?
+  logoUrl      String?
+  academicYear String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  users    User[]
+  students Student[]
+  subjects Subject[]
+  exams    Exam[]
+  classes  Class[]
+  smsLogs  SmsLog[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  schoolId     String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  firstName    String
+  lastName     String
+  userType     UserType
+  isActive     Boolean  @default(true)
+  lastLogin    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student      Student?
+  parent       Parent?
+  sentMessages Message[] @relation("MessageSender")
+  receivedMessages Message[] @relation("MessageReceiver")
+  announcements Announcement[]
+  attendance   Attendance[]
+}
+
+enum UserType {
+  admin
+  teacher
+  principal
+  academic_master
+  ict_officer
+  parent
+  student
+}
+
+model Student {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  admissionNumber  String   @unique
+  classId          String
+  streamId         String?
+  parentId         String?
+  dateOfBirth      DateTime?
+  gender           Gender
+  enrollmentDate   DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class            Class    @relation(fields: [classId], references: [id])
+  stream           Stream?  @relation(fields: [streamId], references: [id])
+  parent           Parent?  @relation(fields: [parentId], references: [id])
+  examResults      ExamResult[]
+  attendance       Attendance[]
+}
+
+model Parent {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  students  Student[]
+}
+
+model Class {
+  id        String   @id @default(uuid())
+  schoolId  String
+  name      String
+  level     Int?
+  createdAt DateTime @default(now())
+
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  students  Student[]
+  streams   Stream[]
+}
+
+model Stream {
+  id        String   @id @default(uuid())
+  classId   String
+  name      String
+  createdAt DateTime @default(now())
+
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  students  Student[]
+}
+
+model Subject {
+  id        String   @id @default(uuid())
+  schoolId  String
+  name      String
+  code      String?
+  category  String?
+  createdAt DateTime @default(now())
+
+  school    School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  examResults ExamResult[]
+}
+
+model Exam {
+  id           String      @id @default(uuid())
+  schoolId     String
+  name         String
+  examType     String?
+  term         String?
+  academicYear String?
+  totalMarks   Float?
+  createdAt    DateTime    @default(now())
+
+  school       School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  results      ExamResult[]
+}
+
+model ExamResult {
+  id            String   @id @default(uuid())
+  studentId     String
+  examId        String
+  subjectId     String
+  marksObtained Float
+  grade         String
+  points        Int
+  teacherComment String?
+  createdAt     DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  exam    Exam    @relation(fields: [examId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, examId, subjectId])
+}
+
+model Attendance {
+  id           String     @id @default(uuid())
+  studentId    String
+  classId      String
+  date         DateTime
+  status       AttendanceStatus
+  recordedBy   String
+  notes        String?
+  createdAt    DateTime   @default(now())
+
+  student      Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class        Class      @relation(fields: [classId], references: [id])
+  recordedByUser User     @relation(fields: [recordedBy], references: [id])
+}
+
+enum AttendanceStatus {
+  present
+  absent
+  late
+  excused
+}
+
+model Announcement {
+  id             String   @id @default(uuid())
+  schoolId       String
+  title          String
+  message        String
+  targetAudience String?
+  targetClassId  String?
+  createdBy      String
+  isPublished    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  createdByUser  User     @relation(fields: [createdBy], references: [id])
+  targetClass    Class?   @relation(fields: [targetClassId], references: [id])
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  senderId   String
+  receiverId String
+  subject    String?
+  message    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  sender     User     @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User     @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+}
+
+model SmsLog {
+  id             String   @id @default(uuid())
+  schoolId       String
+  recipientPhone String
+  message        String
+  messageType    String?
+  status         String?
+  cost           Float?
+  createdAt      DateTime @default(now())
+
+  school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+}
+
+enum Gender {
+  male
+  female
+  other
+}
